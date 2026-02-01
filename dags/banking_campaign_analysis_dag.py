@@ -4,11 +4,16 @@ from airflow.operators.empty import EmptyOperator
 from datetime import datetime
 import pandas as pd
 
+from validateData import BankingDataValidator
 from validateFile import FileValidator
 from extract import BankingDataExtractor
 from transform import BankingDataTransformer
 from load import BankingDataLoader
+from prepareStaging import BankingDataPrepare
 
+def prepare_staging_task():
+    preparer = BankingDataPrepare()
+    preparer.prepare_staging()
 
 def validate_task(**context):
     csv_path = context["dag_run"].conf.get("csv_path")
@@ -42,6 +47,17 @@ def transform_task(**context):
         value=df.to_json()
     )
 
+def validate_data_task(**context):
+    df_json = context["ti"].xcom_pull(
+        task_ids="transform",
+        key="job_summary"
+    )
+
+    batch_id = context["dag_run"].run_id
+    df = pd.read_json(df_json)
+
+    validator = BankingDataValidator()
+    validator.validate(df, batch_id)
 
 def load_task(**context):
     df_json = context["ti"].xcom_pull(
@@ -54,6 +70,7 @@ def load_task(**context):
 
     loader = BankingDataLoader()
     loader.load(df, batch_id)
+    loader.mark_processed(batch_id)
 
 
 
@@ -71,7 +88,10 @@ with DAG(
         python_callable=validate_task,
         provide_context=True
     )
-
+    prepare = PythonOperator(
+        task_id="prepare_staging",
+        python_callable=prepare_staging_task
+    )
     extract = PythonOperator(
         task_id="extract",
         python_callable=extract_task,
@@ -83,7 +103,11 @@ with DAG(
         python_callable=transform_task,
         provide_context=True
     )
-
+    validate_data = PythonOperator(
+        task_id="validate_data",
+        python_callable=validate_data_task,
+        provide_context=True
+    )
     load = PythonOperator(
         task_id="load",
         python_callable=load_task,
@@ -92,4 +116,4 @@ with DAG(
 
     end = EmptyOperator(task_id="end")
 
-    start >> validate >> extract >> transform >> load >> end
+    start >> validate >> prepare >> extract >> transform >> validate_data >> load >> end

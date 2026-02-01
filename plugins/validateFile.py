@@ -44,7 +44,7 @@ class FileValidator:
             ).fetchone()
 
             if result:
-                raise ValueError("❌ File already ingested (duplicate content)")
+                raise ValueError("File đã được xử lý trước đó.")
 
             conn.execute(
                 text("""

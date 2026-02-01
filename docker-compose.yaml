@@ -20,6 +20,7 @@ x-airflow-common:
     - ./plugins:/opt/airflow/plugins
     - ./requirements.txt:/requirements.txt
     - ./data:/opt/airflow/data
+    
   user: "${AIRFLOW_UID:-50000}:0"
 
 services:

@@ -1,3 +1,4 @@
+import shutil
 import requests
 import pandas as pd
 import os
@@ -16,6 +17,19 @@ class FileIngestService:
 
         os.makedirs(self.data_dir, exist_ok=True)
 
+    def _generate_csv_name(self):
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        return f"banking_{timestamp}.csv"
+
+    def save_csv_to_data_dir(self, temp_csv_path: str) -> str:
+        csv_filename = self._generate_csv_name()
+
+        host_csv_path = os.path.join(self.data_dir, csv_filename)
+        shutil.copy(temp_csv_path, host_csv_path)
+
+        airflow_csv_path = f"/opt/airflow/data/{csv_filename}"
+        return airflow_csv_path
+    
     def convert_excel_to_csv(self, file_path: str) -> str:
         df = pd.read_excel(file_path)
 
